@@ -1,0 +1,137 @@
+runconfig:
+  name: cslc_s1_GA_workflow
+
+  groups:
+      pge_name_group:
+          pge_name: CSLC_S1_PGE
+
+      input_file_group:
+          # Required. List of SAFE files (min=1)
+          safe_file_path: 
+          - CONFIG_SAFE_FILE_PATH
+          # Required. List of orbit (EOF) files (min=1)
+          orbit_file_path: 
+          - CONFIG_ORBIT_FILE_PATH
+          # The unique burst ID(s) to process. If nothing provided, all bursts
+          # in a SAFE will processed
+          burst_id: CONFIG_BURST_ID
+
+      dynamic_ancillary_file_group:
+          # Digital elevation model
+          dem_file: CONFIG_DEM_FILE
+          # Description for DEM used for the processing
+          dem_description: CONFIG_DEM_DESCRIPTION
+          # TEC file in IONEX format for ionosphere correction
+          tec_file:
+          # Troposphere weather model file
+          weather_model_file:
+
+      static_ancillary_file_group:
+          # burst database sqlite file
+          burst_database_file: burst_database_file_tmp
+
+      product_path_group:
+          # Directory where PGE will place results
+          product_path: CONFIG_PRODUCT_PATH
+          # Directory where SAS writes temporary data
+          scratch_path: CONFIG_SCRATCH_PATH
+          # Intermediate file name. SAS writes the output to this file.
+          # PGE may rename the product according to file naming convention
+          sas_output_file: sas_output_file_tmp
+          # Product version
+          product_version: '0.2'
+          # Product specification document version
+          product_specification_version: '0.1'
+
+      primary_executable:
+          product_type: CSLC_S1
+
+      processing:
+          polarization: CONFIG_POLARISATION
+          geocoding:
+              flatten: True
+              x_posting:
+              y_posting:
+              x_snap:
+              y_snap:
+          geo2rdr:
+              lines_per_block: 1000
+              threshold: 1.0e-8
+              numiter: 25
+
+          correction_luts:
+              # Boolean flag to activate/deactivate model-based
+              # corrections while geocoding the burst
+              enabled: True
+              # LUT spacing in range direction in meters
+              range_spacing: 120
+              # LUT spacing in azimuth direction in seconds
+              azimuth_spacing: 0.028
+              # Troposphere delay using weather model
+              troposphere:
+                 # Type of troposphere delay. Any of 'dry', 'wet' or 'wet_dry' for
+                 # the sum of wet and dry delays
+                 delay_type: wet_dry
+
+          rdr2geo:
+              # Convergence threshold for rdr2geo algorithm
+              threshold: 1.0e-8
+              # Maximum number of iterations
+              numiter: 25
+              # Lines per block to process in batch
+              lines_per_block: 1000
+              # Secondary number of iterations
+              extraiter: 10
+              # Enable/disable computation of latitude raster
+              compute_latitude: False
+              # Enable/disable computation of longitude raster
+              compute_longitude: False
+              # Enable/disable computation of height raster
+              compute_height: False
+              # Enable/disable layover shadow mask output
+              compute_layover_shadow_mask: True
+              # Enable/disable local incidence output
+              compute_local_incidence_angle: True
+              # Enable/disable ground to satellite East LOS vector
+              compute_ground_to_sat_east: True
+              # Enable/disable ground to satellite North LOS vector
+              compute_ground_to_sat_north: True
+
+      worker:
+          # Optional. To prevent downloading DEM or other data (default: False)
+          internet_access: False
+          # Optional. Use GPU capabilities if available (default: False)
+          gpu_enabled: False
+          # Optional. Index of GPU to be used for processing. Ignored if
+          # *gpu_enabled* is False (default: 0)
+          gpu_id: 0
+
+      quality_assurance:
+          browse_image:
+              # Enable/disable generation of CSLC browse image
+              enabled: True
+              # How to convert complex CSLC to real
+              complex_to_real: amplitude
+              # Lower percentile of non-nan pixels to clip
+              percent_low: 0
+              # Higher percentile of non-nan pixels to clip
+              percent_high: 95
+              # Gamma exponent applied to normalized image
+              gamma: 0.5
+              # Enable/disable histogram equalization
+              equalize: False
+          perform_qa: True
+          output_to_json: False
+
+      # Output options for CSLC raster (e.g. compression, chunking, shuffle filter)
+      output:
+          # Data type of CSLC raster
+          cslc_data_type: complex64_zero_mantissa
+          # Enable gzip compression of rasters
+          compression_enabled: True
+          # Level of compression applied to rasters
+          compression_level: 4
+          # Chunk size of rasters
+          chunk_size: [128, 128]
+          # Enable shuffle filtering of rasters
+          shuffle: True
