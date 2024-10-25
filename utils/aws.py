@@ -77,3 +77,30 @@ def upload_file(file_name, bucket, object_name=None):
             logging.info('aws cli cp failed')
             logging.error(e)
             raise e
+
+def upload_files_in_folder( 
+    local_folder, 
+    s3_bucket, 
+    s3_prefix='', 
+    exclude_ext = []):
+    """_summary_
+
+    Args:
+        s3_client (boto3.client): instance of boto3 client with required credentials
+        local_folder (str): local folder to be uploaded
+        s3_bucket (str): s3 bucket to upload to
+        s3_prefix (str, optional): prefix in the s3 bucket. Defaults to ''.
+        excluse_ext (str, optional) : list of file extensions to exclude from upload
+    """
+    s3_client = boto3.client('s3')
+    for root, dirs, files in os.walk(local_folder):
+        for file in files:
+            if exclude_ext:
+                filename, file_extension = os.path.splitext(file)
+                if file_extension in exclude_ext:
+                    continue
+            local_path = os.path.join(root, file)
+            relative_path = os.path.relpath(local_path, local_folder)
+            s3_key = os.path.join(s3_prefix, relative_path).replace("\\", "/")
+            s3_client.upload_file(local_path, s3_bucket, s3_key)
+            print(f"Uploaded {local_path} to s3://{s3_bucket}/{s3_key}")

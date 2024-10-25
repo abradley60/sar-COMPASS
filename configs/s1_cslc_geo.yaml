@@ -28,7 +28,7 @@ runconfig:
 
       static_ancillary_file_group:
           # burst database sqlite file
-          burst_database_file: burst_database_file_tmp
+          burst_database_file: CONFIG_BURST_DATABASE_FILE
 
       product_path_group:
           # Directory where PGE will place results
