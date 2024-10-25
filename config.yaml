@@ -113,7 +113,7 @@ COMPASS_scratch_folder: /data/COMPASS/scratch
 COMPASS_output_folder: /data/COMPASS/outdir
 
 # location of earthdata credentials to download data.
-earthdata_credentials: credentials/credentials_earthdata.yaml
+earthdata_credentials: /data/credentials/credentials_earthdata.yaml
 
 # location of aws credentials 
 aws_credentials: credentials/credentials_aws.yaml
@@ -125,7 +125,7 @@ copernicus_credentials: credentials/credentials_copernicus.yaml
 scene_folder: /data/scenes
 
 # whether to unzip the safe file
-unzip_scene: True
+unzip_scene: False
 
 # directory where precise orbits are saved
 precise_orbit_folder: /data/osv/POEORB

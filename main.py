@@ -9,6 +9,7 @@ from shapely.geometry import Polygon
 import time
 from dem_stitcher import stitch_dem
 import subprocess
+import rasterio
 
 from utils.utils import update_timing_file
 #from utils.etad import *
@@ -42,14 +43,14 @@ def run_process(config):
     with open(config, 'r', encoding='utf8') as fin:
         main_config = yaml.safe_load(fin.read())
 
-    # read in aws credentials and set as environ vars
-    logging.info(f'setting aws credentials from : {main_config["aws_credentials"]}')
-    with open(main_config['aws_credentials'], "r", encoding='utf8') as f:
-        aws_cfg = yaml.safe_load(f.read())
-        # set all keys as environment variables
-        for k in aws_cfg.keys():
-            logging.info(f'setting {k}')
-            os.environ[k] = aws_cfg[k]
+    # # read in aws credentials and set as environ vars
+    # logging.info(f'setting aws credentials from : {main_config["aws_credentials"]}')
+    # with open(main_config['aws_credentials'], "r", encoding='utf8') as f:
+    #     aws_cfg = yaml.safe_load(f.read())
+    #     # set all keys as environment variables
+    #     for k in aws_cfg.keys():
+    #         logging.info(f'setting {k}')
+    #         os.environ[k] = aws_cfg[k]
 
 
     # make the timing file
@@ -104,15 +105,17 @@ def run_process(config):
         SCENE_NAME = asf_result.__dict__['umm']['GranuleUR'].split('-')[0]
         POLARIZATION = asf_result.properties['polarization']
         POLARIZATION_TYPE = 'dual-pol' if len(POLARIZATION) > 2 else 'co-pol' # string for template value
-        scene_zip = os.path.join(main_config['scene_folder'], SCENE_NAME + '.zip')
-        asf_result.download(path=main_config['scene_folder'], session=session)
+        SCENE_DOWNLOAD_FOLDER = main_config['scene_folder']
+        os.makedirs(SCENE_DOWNLOAD_FOLDER, exist_ok=True)
+        scene_zip = os.path.join(SCENE_DOWNLOAD_FOLDER, SCENE_NAME + '.zip')
+        asf_result.download(path=SCENE_DOWNLOAD_FOLDER, session=session)
             
         # unzip scene
         ORIGINAL_SAFE_PATH = scene_zip.replace(".zip",".SAFE")
         if (main_config['unzip_scene'] or main_config['apply_ETAD']) and not os.path.exists(ORIGINAL_SAFE_PATH): 
             logging.info(f'unzipping scene to {ORIGINAL_SAFE_PATH}')     
             with zipfile.ZipFile(scene_zip, 'r') as zip_ref:
-                zip_ref.extractall(main_config['scene_folder'])
+                zip_ref.extractall(SCENE_DOWNLOAD_FOLDER)
 
         # apply the ETAD corrections to the SLC
         if main_config['apply_ETAD']:
@@ -138,11 +141,18 @@ def run_process(config):
         SAFE_PATH = ORIGINAL_SAFE_PATH if not main_config['apply_ETAD'] else ETAD_SAFE_PATH
         CONFIG_SAFE_FILE_PATH.append(SAFE_PATH)
 
+        PRECISE_ORBIT_DOWNLOAD_FOLDER = main_config['precise_orbit_folder']
+        RESTITUDED_ORBIT_DOWNLOAD_FOLDER = main_config['restituted_orbit_folder']
+        os.makedirs(PRECISE_ORBIT_DOWNLOAD_FOLDER, exist_ok=True)
+        os.makedirs(RESTITUDED_ORBIT_DOWNLOAD_FOLDER, exist_ok=True)
+
         # download orbits
         logging.info(f'downloading orbit files for scene')
         prec_orb_files = download_eofs(sentinel_file=scene_zip, 
                       save_dir=main_config['precise_orbit_folder'], 
-                      orbit_type='precise')
+                      orbit_type='precise',
+                      asf_user=earthdata_uid,
+                      asf_password=earthdata_pswd)
         if len(prec_orb_files) > 0:
             ORBIT_PATH = str(prec_orb_files[0])
             logging.info(f'using precise orbits: {ORBIT_PATH}')
@@ -159,7 +169,7 @@ def run_process(config):
         
         CONFIG_ORBIT_FILE_PATH.append(ORBIT_PATH)
         
-    print(f'Downloaded {len(CONFIG_SAFE_FILE_PATH)} of {len(main_config['scenes'])} scenes')
+    # print(f'Downloaded {len(CONFIG_SAFE_FILE_PATH)} of {len(main_config['scenes'])} scenes')
     t1 = time.time()
     update_timing_file('Download Scene', t1 - t0, TIMING_FILE_PATH)
 
@@ -217,6 +227,9 @@ def run_process(config):
                             dst_area_or_point='Point',
                             merge_nodata_value=0
                             )
+            with rasterio.open(DEM_PATH, 'w', **dem_meta) as ds:
+                ds.write(dem_data, 1)
+                ds.update_tags(AREA_OR_POINT='Point')
             logging.info(f'DEM downloaded : {DEM_PATH}')
 
     t2 = time.time()
@@ -243,10 +256,12 @@ def run_process(config):
     template_text = template_text.replace('CONFIG_POLARISATION',
                                             POLARIZATION_TYPE)
 
+    COMPASS_CONFIG_FOLDER = main_config['COMPASS_config_folder']
+    os.makedirs(COMPASS_CONFIG_FOLDER, exist_ok=True)
 
     # name config after first scene
     COMPASS_config_name = main_config['scenes'][0] + '.yaml'
-    COMPASS_config_path = os.path.join(main_config['COMPASS_config_folder'], COMPASS_config_name)
+    COMPASS_config_path = os.path.join(COMPASS_CONFIG_FOLDER, COMPASS_config_name)
     with open(COMPASS_config_path, 'w') as f:
         f.write(template_text)
 
