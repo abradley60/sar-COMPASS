@@ -1,5 +1,7 @@
 Setup notes
 
+conda env create --name compass_isce3
+
 conda activate compass_isce3
 
 conda install -c conda-forge compass
