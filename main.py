@@ -345,9 +345,9 @@ def run_process(config):
                 logging.info(f'Clearing directory: {ETAD_SAFE_PATH}')
 
             shutil.rmtree(SCENE_OUT_FOLDER)
-            shutil.rmtree(main_config['OPERA_scratch_folder'])
+            shutil.rmtree(main_config['COMPASS_scratch_folder'])
             # remake the scratch folder
-            os.makedirs(main_config['OPERA_scratch_folder'])
+            os.makedirs(main_config['COMPASS_scratch_folder'])
         
         t5 = time.time()
         update_timing_file('Delete Files', t5 - t4, TIMING_FILE_PATH)
