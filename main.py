@@ -244,8 +244,12 @@ def run_process(config):
                                           str(CONFIG_SAFE_FILE_PATH[0]))
     template_text = template_text.replace('CONFIG_ORBIT_FILE_PATH',
                                           str(CONFIG_ORBIT_FILE_PATH[0]))
-    template_text = template_text.replace('CONFIG_BURST_ID',
+    if main_config['burst_ids'] is not None:
+        template_text = template_text.replace('CONFIG_BURST_ID',
                                           str(main_config['burst_ids']))
+    else: 
+        template_text = template_text.replace('CONFIG_BURST_ID',
+                                          '')
     template_text = template_text.replace('CONFIG_DEM_FILE',
                                           DEM_PATH)
     #template_text = template_text.replace('SCENE_NAME',SCENE_NAME)
