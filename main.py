@@ -11,6 +11,7 @@ from dem_stitcher import stitch_dem
 import subprocess
 import rasterio
 from datetime import datetime
+import shutil
 
 from utils.utils import update_timing_file
 #from utils.etad import *
@@ -246,6 +247,12 @@ def run_process(config):
                 ds.update_tags(AREA_OR_POINT='Point')
             del dem_data
             logging.info(f'DEM downloaded : {DEM_PATH}')
+            # save with rasterio
+            logging.info(f'saving dem to {DEM_PATH}')
+            with rasterio.open(DEM_PATH, 'w', **dem_meta) as ds:
+                ds.write(dem_data, 1)
+                ds.update_tags(AREA_OR_POINT='Point')
+            del dem_data
 
     t2 = time.time()
     update_timing_file('Download DEM', t2 - t1, TIMING_FILE_PATH)
@@ -315,7 +322,8 @@ def run_process(config):
                 break
     else:
         logging.info(f'PROCESS 3: Skipping COMPASS ("skip_COMPASS"==True)')
-      # check if the final products exist, indicating success 
+    
+    # check if the final products exist, indicating success 
     t3 = time.time()
     update_timing_file('RTC Processing', t3 - t2, TIMING_FILE_PATH)
             
@@ -353,6 +361,10 @@ def run_process(config):
                 
         t4 = time.time()
         update_timing_file('S3 Upload', t4 - t3, TIMING_FILE_PATH)
+<<<<<<< HEAD
+=======
+
+>>>>>>> origin/main
         if main_config['delete_local_files']:
             logging.info(f'PROCESS 4: Clear files locally')
             #clear downloads
@@ -369,6 +381,10 @@ def run_process(config):
                 logging.info(f'Clearing ETAD corrected SAFE directory: {ETAD_SAFE_PATH}')
                 shutil.rmtree(ETAD_SAFE_PATH)
                 logging.info(f'Clearing directory: {ETAD_SAFE_PATH}')
+<<<<<<< HEAD
+=======
+
+>>>>>>> origin/main
             shutil.rmtree(SCENE_OUT_FOLDER)
             shutil.rmtree(main_config['COMPASS_scratch_folder'])
             # remake the scratch folder
@@ -376,6 +392,7 @@ def run_process(config):
         
         t5 = time.time()
         update_timing_file('Delete Files', t5 - t4, TIMING_FILE_PATH)
+
         # push timings
         if main_config['push_to_s3']:
             bucket_path = os.path.join(bucket_folder, TIMING_FILE)

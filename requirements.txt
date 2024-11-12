@@ -1,0 +1,7 @@
+asf_search==8.0.1
+boto3
+geopandas==1.0.1
+pyyaml
+sentineleof==0.10.0
+git+https://github.com/abradley60/dem-stitcher.git@dem_fill # fork of dem-stitcher for antarctica
+
