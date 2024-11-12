@@ -91,7 +91,7 @@ scenes: [
         ]
 
 # list of corresponding bursts
-# leave empty to process full scene
+# leave empty to process full scene [t071_151218_iw2]
 burst_ids : [t071_151218_iw2]
 
 # the name of the software. This will form part of the path
@@ -112,6 +112,11 @@ COMPASS_scratch_folder: /data/COMPASS/scratch
 # a new folder is made for each scene
 COMPASS_output_folder: /data/COMPASS/outdir
 
+# location of the unziped burstdb folder for compass
+# contains sqlite files for IW and EW bursts
+# https://sar-mpc.eu/files/S1_burstid_20220530.zip
+COMPASS_burst_database_file: /data/opera-burst-bbox-only.sqlite3
+
 # location of earthdata credentials to download data.
 earthdata_credentials: /data/credentials/credentials_earthdata.yaml
 
@@ -124,8 +129,8 @@ copernicus_credentials: credentials/credentials_copernicus.yaml
 # directory to save scenes
 scene_folder: /data/scenes
 
-# whether to unzip the safe file
-unzip_scene: False
+# whether to unzip the .zip file to SAFE file
+unzip_scene: True
 
 # directory where precise orbits are saved
 precise_orbit_folder: /data/osv/POEORB
@@ -136,7 +141,7 @@ restituted_orbit_folder: /data/osv/RESORB
 # Absolute file path to a DEM to use (skip download process and use DEM specified)
 # leave empty to ignore
 # /data/dem/glo_30/S1A_IW_SLC__1SDV_20191028T131928_20191028T131947_029659_0360CA_A1A0_dem_3031.tif
-dem_path: 
+dem_path: /data/dem/glo_30/S1A_IW_SLC__1SDV_20190716T135159_20190716T135226_028143_032DC3_512B_dem.tif
 
 # directory downloaded DEM will be saved - a sub folder is made for each DEM type
 dem_folder: /data/dem
@@ -184,6 +189,8 @@ upload_dem: True
 delete_local_files: False
 
 # Skip the rtc process
-# True will skip the COMPASS-rtc run and
+# True will skip the COMPASS run and
 # try and upload existing results for the given scenes
-skip_rtc : False
+skip_COMPASS : True
+
+cProfile_folder: /data/logs

@@ -10,21 +10,29 @@ import time
 from dem_stitcher import stitch_dem
 import subprocess
 import rasterio
+from datetime import datetime
 
 from utils.utils import update_timing_file
 #from utils.etad import *
 from utils.raster import *
+from utils.aws import upload_file,upload_files_in_folder
 
+def get_scene_name(config):
+    # read in the config for on the fly (otf) processing
+    with open(config, 'r', encoding='utf8') as fin:
+        main_config = yaml.safe_load(fin.read())
+    return main_config['scenes'][0]
+
+def get_unique_log_filename(scene_name):
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    return f"{scene_name}_{timestamp}.log"
 
 logging.basicConfig(
     format='%(asctime)s %(levelname)-8s %(message)s',
     level=logging.INFO,
     datefmt='%Y-%m-%d %H:%M:%S')
 
-fh = logging.FileHandler('run.log')
-logger = logging.getLogger()
-logger.addHandler(fh)
-
+os.makedirs('/data/logs', exist_ok=True)
 
 def run_process(config):
     """main process to download data and produce CSLC's
@@ -33,6 +41,11 @@ def run_process(config):
     Args:
         config (str): path to the config file
     """
+
+    scene_name = get_scene_name(config)  # Get scene name from config
+    fh = logging.FileHandler(f"/data/logs/{get_unique_log_filename(scene_name)}")
+    logger = logging.getLogger()
+    logger.addHandler(fh)
 
     t_start = time.time()
     # define success / failure tracker
@@ -43,15 +56,14 @@ def run_process(config):
     with open(config, 'r', encoding='utf8') as fin:
         main_config = yaml.safe_load(fin.read())
 
-    # # read in aws credentials and set as environ vars
-    # logging.info(f'setting aws credentials from : {main_config["aws_credentials"]}')
-    # with open(main_config['aws_credentials'], "r", encoding='utf8') as f:
-    #     aws_cfg = yaml.safe_load(f.read())
-    #     # set all keys as environment variables
-    #     for k in aws_cfg.keys():
-    #         logging.info(f'setting {k}')
-    #         os.environ[k] = aws_cfg[k]
-
+    # read in aws credentials and set as environ vars
+    logging.info(f'setting aws credentials from : {main_config["aws_credentials"]}')
+    with open(main_config['aws_credentials'], "r", encoding='utf8') as f:
+        aws_cfg = yaml.safe_load(f.read())
+        # set all keys as environment variables
+        for k in aws_cfg.keys():
+            logging.info(f'setting {k}')
+            os.environ[k] = aws_cfg[k]
 
     # make the timing file
     timing = {}
@@ -104,6 +116,7 @@ def run_process(config):
         session.auth_with_creds(earthdata_uid,earthdata_pswd)
         SCENE_NAME = asf_result.__dict__['umm']['GranuleUR'].split('-')[0]
         POLARIZATION = asf_result.properties['polarization']
+        BEAMMODE = asf_result.properties['beamModeType']
         POLARIZATION_TYPE = 'dual-pol' if len(POLARIZATION) > 2 else 'co-pol' # string for template value
         SCENE_DOWNLOAD_FOLDER = main_config['scene_folder']
         os.makedirs(SCENE_DOWNLOAD_FOLDER, exist_ok=True)
@@ -227,9 +240,11 @@ def run_process(config):
                             dst_area_or_point='Point',
                             merge_nodata_value=0
                             )
+            # save with rasterio
             with rasterio.open(DEM_PATH, 'w', **dem_meta) as ds:
                 ds.write(dem_data, 1)
                 ds.update_tags(AREA_OR_POINT='Point')
+            del dem_data
             logging.info(f'DEM downloaded : {DEM_PATH}')
 
     t2 = time.time()
@@ -259,8 +274,13 @@ def run_process(config):
                                             SCENE_OUT_FOLDER)
     template_text = template_text.replace('CONFIG_POLARISATION',
                                             POLARIZATION_TYPE)
+    template_text = template_text.replace('CONFIG_BURST_DATABASE_FILE', 
+                                          main_config['COMPASS_burst_database_file'])
 
     COMPASS_CONFIG_FOLDER = main_config['COMPASS_config_folder']
+    os.makedirs(COMPASS_CONFIG_FOLDER, exist_ok=True)
+
+    cProfile_path = main_config['cProfile_folder']
     os.makedirs(COMPASS_CONFIG_FOLDER, exist_ok=True)
 
     # name config after first scene
@@ -274,27 +294,105 @@ def run_process(config):
         COMPASS_rtc_cfg = yaml.safe_load(fin.read())
 
     logging.info(f'PROCESS 3: Generate CLSC with Compass')
-    command = f"s1_cslc.py --grid geo {COMPASS_config_path}"
-    process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    
-    # Print stdout and stderr as it runs
-    while True:
-        # Read a line from stdout
-        output = process.stdout.readline()
-        if output:
-            logging.info(output.strip())  # Print the output
+    command = f"python3 -m cProfile -o {cProfile_path}/{scene_name}.prof $(type -P s1_cslc.py) --grid geo {COMPASS_config_path}"
+    if not main_config['skip_COMPASS']:
+        process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        # Print stdout and stderr as it runs
+        while True:
+            # Read a line from stdout
+            output = process.stdout.readline()
+            if output:
+                logging.info(output.strip())  # Print the output
+            # Check if the process has finished
+            return_code = process.poll()
+            if return_code is not None:
+                # Process any remaining stdout after process has finished
+                for output in process.stdout.readlines():
+                    logging.info(output.strip())
+                # Process any remaining stderr
+                for err in process.stderr.readlines():
+                    logging.error(err.strip())
+                break
+    else:
+        logging.info(f'PROCESS 3: Skipping COMPASS ("skip_COMPASS"==True)')
+      # check if the final products exist, indicating success 
+    t3 = time.time()
+    update_timing_file('RTC Processing', t3 - t2, TIMING_FILE_PATH)
+            
+    # push to S3
+    if main_config['push_to_s3']:
+        logging.info(f'PROCESS 3: Push results to S3 bucket')
+        # see if any prefix or additional bucket path is needed
+        SCENE_PREFIX = '' if main_config["scene_prefix"] == None else main_config["scene_prefix"]
+        S3_BUCKET_FOLDER = '' if main_config["s3_bucket_folder"] == None else main_config["s3_bucket_folder"]
+        bucket_folder = os.path.join(
+            S3_BUCKET_FOLDER,
+            main_config["software"],
+            main_config['dem_type'],
+            f'CRS',
+            f'{SCENE_PREFIX}{SCENE_NAME}')
+        # upload output files
+        upload_files_in_folder(
+            SCENE_OUT_FOLDER,
+            main_config['s3_bucket'],
+            bucket_folder,
+        )
+        # upload DEM
+        if main_config['upload_dem']:
+            bucket_path = os.path.join(bucket_folder,dem_filename)
+            logging.info(f'Uploading file: {DEM_PATH}')
+            upload_file(DEM_PATH, 
+                        bucket=main_config['s3_bucket'], 
+                        object_name=bucket_path)
+        # upload yaml
+        bucket_path = os.path.join(bucket_folder,dem_filename)
+        logging.info(f'Uploading file: {DEM_PATH}')
+        upload_file(COMPASS_config_path, 
+                    bucket=main_config['s3_bucket'], 
+                    object_name=bucket_path)
+                
+        t4 = time.time()
+        update_timing_file('S3 Upload', t4 - t3, TIMING_FILE_PATH)
+        if main_config['delete_local_files']:
+            logging.info(f'PROCESS 4: Clear files locally')
+            #clear downloads
+            for file_ in [scene_zip,
+                        DEM_PATH,
+                        ORBIT_PATH,
+                        COMPASS_config_path,
+                        ]:
+                logging.info(f'Deleteing {file_}')
+                os.remove(file_)
+            logging.info(f'Clearing SAFE directory: {ORIGINAL_SAFE_PATH}')
+            shutil.rmtree(ORIGINAL_SAFE_PATH)
+            if main_config['apply_ETAD']:
+                logging.info(f'Clearing ETAD corrected SAFE directory: {ETAD_SAFE_PATH}')
+                shutil.rmtree(ETAD_SAFE_PATH)
+                logging.info(f'Clearing directory: {ETAD_SAFE_PATH}')
+            shutil.rmtree(SCENE_OUT_FOLDER)
+            shutil.rmtree(main_config['COMPASS_scratch_folder'])
+            # remake the scratch folder
+            os.makedirs(main_config['COMPASS_scratch_folder'])
+        
+        t5 = time.time()
+        update_timing_file('Delete Files', t5 - t4, TIMING_FILE_PATH)
+        # push timings
+        if main_config['push_to_s3']:
+            bucket_path = os.path.join(bucket_folder, TIMING_FILE)
+            logging.info(f'Uploading file: {TIMING_FILE_PATH}')
+            logging.info(f'Destination: {bucket_path}')
+            upload_file(file_name=TIMING_FILE_PATH, 
+                        bucket=main_config['s3_bucket'], 
+                        object_name=bucket_path)
+            os.remove(TIMING_FILE_PATH)
+        
+        # TODO push a logs file
+        upload_files_in_folder(
+            cProfile_path,
+            main_config['s3_bucket'],
+            bucket_folder,
+        )        
 
-        # Check if the process has finished
-        return_code = process.poll()
-        if return_code is not None:
-            # Process any remaining stdout after process has finished
-            for output in process.stdout.readlines():
-                logging.info(output.strip())
-            # Process any remaining stderr
-            for err in process.stderr.readlines():
-                logging.error(err.strip())
-            break
-    
     logging.info(f'Run complete, {len(main_config["scenes"])} scenes processed')
     logging.info(f'Elapsed time:  {((time.time() - t_start)/60)} minutes')
 
