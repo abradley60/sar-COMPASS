@@ -1,27 +1,26 @@
-Setup notes
+### Instructions to run the docker container interactively
 
-conda env create --name compass_isce3
+Build the container with a tag.
 
-conda activate compass_isce3
+`docker build -t compass-orc:latest .`
 
-conda install -c conda-forge compass
+Run the container in interactive mode, mounting your local data folder to the one inside the Docker container.
 
-conda install rasterio
+`docker run --volume /home/ubuntu/sar-COMPASS-data:/data -it compass-orc:latest bash`
 
-conda install -c avalentino -c conda-forge s1etad
+Navigate to the scripts folder inside the Docker container.
 
-pip install requirements.txt
+`cd /home/compass_user/scripts` 
 
-need to create burst db - https://github.com/opera-adt/burst_db
+Run the script in debugging mode.
 
-pip install requirements.txt
+`python3 -m pdb main.py -c config.yaml` 
 
+Optionally, run the script with memory profiling.
 
-docker build -t compass-orc:latest .
-docker run --volume /home/ubuntu/sar-COMPASS-data:/data -it compass-orc:latest bash
-cd /home/compass_user/scripts
-python3 -m pdb main.py -c config.yaml
+`/usr/bin/time -v -o /data/logs/output_memory_profiling.txt python3 main.py -c config.yaml`
 
+### Extra installation notes
+`conda install -c avalentino -c conda-forge s1etad`
 
-modify config.yaml and put data in /data
-potentially move this inside a docker container in a fixed location
+`pip install requirements.txt`
