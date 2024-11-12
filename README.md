@@ -20,6 +20,10 @@ Optionally, run the script with memory profiling.
 
 `/usr/bin/time -v -o /data/logs/output_memory_profiling.txt python3 main.py -c config.yaml`
 
+Upload the logs to the S3 bucket.
+
+`python3 upload_logs.py -c config.yaml`
+
 ### Extra installation notes
 `conda install -c avalentino -c conda-forge s1etad`
 

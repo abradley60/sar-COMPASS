@@ -6,6 +6,7 @@ RUN yum install -y time
 USER compass_user
 RUN mkdir -p /home/compass_user/scripts/
 COPY main.py /home/compass_user/scripts/main.py
+COPY upload_logs.py /home/compass_user/scripts/upload_logs.py
 COPY config.yaml /home/compass_user/scripts/config.yaml
 COPY utils /home/compass_user/scripts/utils
 COPY configs /home/compass_user/scripts/configs

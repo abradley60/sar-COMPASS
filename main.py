@@ -10,23 +10,12 @@ import time
 from dem_stitcher import stitch_dem
 import subprocess
 import rasterio
-from datetime import datetime
 import shutil
 
-from utils.utils import update_timing_file
+from utils.utils import update_timing_file,get_scene_name,get_unique_log_filename
 #from utils.etad import *
 from utils.raster import *
 from utils.aws import upload_file,upload_files_in_folder
-
-def get_scene_name(config):
-    # read in the config for on the fly (otf) processing
-    with open(config, 'r', encoding='utf8') as fin:
-        main_config = yaml.safe_load(fin.read())
-    return main_config['scenes'][0]
-
-def get_unique_log_filename(scene_name):
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    return f"{scene_name}_{timestamp}.log"
 
 logging.basicConfig(
     format='%(asctime)s %(levelname)-8s %(message)s',
@@ -361,10 +350,7 @@ def run_process(config):
                 
         t4 = time.time()
         update_timing_file('S3 Upload', t4 - t3, TIMING_FILE_PATH)
-<<<<<<< HEAD
-=======
-
->>>>>>> origin/main
+        
         if main_config['delete_local_files']:
             logging.info(f'PROCESS 4: Clear files locally')
             #clear downloads
@@ -381,10 +367,7 @@ def run_process(config):
                 logging.info(f'Clearing ETAD corrected SAFE directory: {ETAD_SAFE_PATH}')
                 shutil.rmtree(ETAD_SAFE_PATH)
                 logging.info(f'Clearing directory: {ETAD_SAFE_PATH}')
-<<<<<<< HEAD
-=======
-
->>>>>>> origin/main
+            
             shutil.rmtree(SCENE_OUT_FOLDER)
             shutil.rmtree(main_config['COMPASS_scratch_folder'])
             # remake the scratch folder
@@ -403,13 +386,6 @@ def run_process(config):
                         object_name=bucket_path)
             os.remove(TIMING_FILE_PATH)
         
-        # TODO push a logs file
-        upload_files_in_folder(
-            cProfile_path,
-            main_config['s3_bucket'],
-            bucket_folder,
-        )        
-
     logging.info(f'Run complete, {len(main_config["scenes"])} scenes processed')
     logging.info(f'Elapsed time:  {((time.time() - t_start)/60)} minutes')
 
