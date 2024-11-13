@@ -58,7 +58,7 @@ def run_process(config):
     # make the timing file
     timing = {}
     t0 = time.time()
-    TIMING_FILE = main_config['scenes'][0] + '_timing.json'
+    TIMING_FILE = main_config['scene'] + '_timing.json'
     TIMING_FILE_PATH = os.path.join(main_config['COMPASS_output_folder'],TIMING_FILE)
 
     # make lists to track downloaded files
@@ -69,110 +69,108 @@ def run_process(config):
     logging.info(f'PROCESS 1: Download Scene and Orbits')
     # loop through the list of scenes
     # download the scene and orbit files
-    for i, scene in enumerate(main_config['scenes']):
-        
-        # add the scene name to the out folder
-        OUT_FOLDER = main_config['COMPASS_output_folder']
-        SCENE_OUT_FOLDER = os.path.join(OUT_FOLDER,scene)
-        os.makedirs(SCENE_OUT_FOLDER, exist_ok=True)
+    scene = main_config['scene']
+    
+    # add the scene name to the out folder
+    OUT_FOLDER = main_config['COMPASS_output_folder']
+    SCENE_OUT_FOLDER = os.path.join(OUT_FOLDER,scene)
+    os.makedirs(SCENE_OUT_FOLDER, exist_ok=True)
 
-        logging.info(f'downloading scene {i+1} of {len(main_config["scenes"])} : {scene}')
-        # search for the scene in asf
-        logging.info(f'searching asf for scene...')
-        asf.constants.CMR_TIMEOUT = 45
-        logging.debug(f'CMR will timeout in {asf.constants.CMR_TIMEOUT}s')
-        asf_results = asf.granule_search([scene], asf.ASFSearchOptions(processingLevel='SLC'))
+    logging.info(f'downloading scene: {scene}')
+    # search for the scene in asf
+    logging.info(f'searching asf for scene...')
+    asf.constants.CMR_TIMEOUT = 45
+    logging.debug(f'CMR will timeout in {asf.constants.CMR_TIMEOUT}s')
+    asf_results = asf.granule_search([scene], asf.ASFSearchOptions(processingLevel='SLC'))
+    
+    if len(asf_results) > 0:
+        logging.info(f'scene found')
+        asf_result = asf_results[0]
+        asf_results_list.append(asf_result)
+    else:
+        logging.error(f'scene not found : {scene}')
+        run_success = False
+        failed['COMPASS-rtc'].append(scene)
+    
+    # read in credentials to download from ASF
+    logging.info(f'setting earthdata credentials from: {main_config["earthdata_credentials"]}')
+    with open(main_config['earthdata_credentials'], "r", encoding='utf8') as f:
+        earthdata_cfg = yaml.safe_load(f.read())
+        earthdata_uid = earthdata_cfg['login']
+        earthdata_pswd = earthdata_cfg['password']
+    
+    # download scene
+    logging.info(f'downloading scene')
+    session = asf.ASFSession()
+    session.auth_with_creds(earthdata_uid,earthdata_pswd)
+    SCENE_NAME = asf_result.__dict__['umm']['GranuleUR'].split('-')[0]
+    POLARIZATION = asf_result.properties['polarization']
+    BEAMMODE = asf_result.properties['beamModeType']
+    POLARIZATION_TYPE = 'dual-pol' if len(POLARIZATION) > 2 else 'co-pol' # string for template value
+    SCENE_DOWNLOAD_FOLDER = main_config['scene_folder']
+    os.makedirs(SCENE_DOWNLOAD_FOLDER, exist_ok=True)
+    scene_zip = os.path.join(SCENE_DOWNLOAD_FOLDER, SCENE_NAME + '.zip')
+    asf_result.download(path=SCENE_DOWNLOAD_FOLDER, session=session)
         
-        if len(asf_results) > 0:
-            logging.info(f'scene found')
-            asf_result = asf_results[0]
-            asf_results_list.append(asf_result)
-        else:
-            logging.error(f'scene not found : {scene}')
-            run_success = False
-            failed['COMPASS-rtc'].append(scene)
-            continue
-        
-        # read in credentials to download from ASF
-        logging.info(f'setting earthdata credentials from: {main_config["earthdata_credentials"]}')
-        with open(main_config['earthdata_credentials'], "r", encoding='utf8') as f:
-            earthdata_cfg = yaml.safe_load(f.read())
-            earthdata_uid = earthdata_cfg['login']
-            earthdata_pswd = earthdata_cfg['password']
-        
-        # download scene
-        logging.info(f'downloading scene')
-        session = asf.ASFSession()
-        session.auth_with_creds(earthdata_uid,earthdata_pswd)
-        SCENE_NAME = asf_result.__dict__['umm']['GranuleUR'].split('-')[0]
-        POLARIZATION = asf_result.properties['polarization']
-        BEAMMODE = asf_result.properties['beamModeType']
-        POLARIZATION_TYPE = 'dual-pol' if len(POLARIZATION) > 2 else 'co-pol' # string for template value
-        SCENE_DOWNLOAD_FOLDER = main_config['scene_folder']
-        os.makedirs(SCENE_DOWNLOAD_FOLDER, exist_ok=True)
-        scene_zip = os.path.join(SCENE_DOWNLOAD_FOLDER, SCENE_NAME + '.zip')
-        asf_result.download(path=SCENE_DOWNLOAD_FOLDER, session=session)
-            
-        # unzip scene
-        ORIGINAL_SAFE_PATH = scene_zip.replace(".zip",".SAFE")
-        if (main_config['unzip_scene'] or main_config['apply_ETAD']) and not os.path.exists(ORIGINAL_SAFE_PATH): 
-            logging.info(f'unzipping scene to {ORIGINAL_SAFE_PATH}')     
-            with zipfile.ZipFile(scene_zip, 'r') as zip_ref:
-                zip_ref.extractall(SCENE_DOWNLOAD_FOLDER)
+    # unzip scene
+    ORIGINAL_SAFE_PATH = scene_zip.replace(".zip",".SAFE")
+    if (main_config['unzip_scene'] or main_config['apply_ETAD']) and not os.path.exists(ORIGINAL_SAFE_PATH): 
+        logging.info(f'unzipping scene to {ORIGINAL_SAFE_PATH}')     
+        with zipfile.ZipFile(scene_zip, 'r') as zip_ref:
+            zip_ref.extractall(SCENE_DOWNLOAD_FOLDER)
 
-        # apply the ETAD corrections to the SLC
-        if main_config['apply_ETAD']:
-            logging.info('Applying ETAD corrections')
-            logging.info(f'loading copernicus credentials from: {main_config["copernicus_credentials"]}')
-            with open(main_config['copernicus_credentials'], "r", encoding='utf8') as f:
-                copernicus_cfg = yaml.safe_load(f.read())
-                copernicus_uid = copernicus_cfg['login']
-                copernicus_pswd = copernicus_cfg['password']
-            etad_path = download_scene_etad(
-                SCENE_NAME, 
-                copernicus_uid, 
-                copernicus_pswd, etad_dir=main_config['ETAD_folder'])
-            ETAD_SCENE_FOLDER = f'{main_config["scene_folder"]}_ETAD'
-            logging.info(f'making new directory for etad corrected slc : {ETAD_SCENE_FOLDER}')
-            ETAD_SAFE_PATH = apply_etad_correction(
-                ORIGINAL_SAFE_PATH, 
-                etad_path, 
-                out_dir=ETAD_SCENE_FOLDER,
-                nthreads=main_config['gdal_threads'])
-        
-        # set as the safe file for processing
-        SAFE_PATH = ORIGINAL_SAFE_PATH if not main_config['apply_ETAD'] else ETAD_SAFE_PATH
-        CONFIG_SAFE_FILE_PATH.append(SAFE_PATH)
+    # apply the ETAD corrections to the SLC
+    if main_config['apply_ETAD']:
+        logging.info('Applying ETAD corrections')
+        logging.info(f'loading copernicus credentials from: {main_config["copernicus_credentials"]}')
+        with open(main_config['copernicus_credentials'], "r", encoding='utf8') as f:
+            copernicus_cfg = yaml.safe_load(f.read())
+            copernicus_uid = copernicus_cfg['login']
+            copernicus_pswd = copernicus_cfg['password']
+        etad_path = download_scene_etad(
+            SCENE_NAME, 
+            copernicus_uid, 
+            copernicus_pswd, etad_dir=main_config['ETAD_folder'])
+        ETAD_SCENE_FOLDER = f'{main_config["scene_folder"]}_ETAD'
+        logging.info(f'making new directory for etad corrected slc : {ETAD_SCENE_FOLDER}')
+        ETAD_SAFE_PATH = apply_etad_correction(
+            ORIGINAL_SAFE_PATH, 
+            etad_path, 
+            out_dir=ETAD_SCENE_FOLDER,
+            nthreads=main_config['gdal_threads'])
+    
+    # set as the safe file for processing
+    SAFE_PATH = ORIGINAL_SAFE_PATH if not main_config['apply_ETAD'] else ETAD_SAFE_PATH
+    CONFIG_SAFE_FILE_PATH.append(SAFE_PATH)
 
-        PRECISE_ORBIT_DOWNLOAD_FOLDER = main_config['precise_orbit_folder']
-        RESTITUDED_ORBIT_DOWNLOAD_FOLDER = main_config['restituted_orbit_folder']
-        os.makedirs(PRECISE_ORBIT_DOWNLOAD_FOLDER, exist_ok=True)
-        os.makedirs(RESTITUDED_ORBIT_DOWNLOAD_FOLDER, exist_ok=True)
+    PRECISE_ORBIT_DOWNLOAD_FOLDER = main_config['precise_orbit_folder']
+    RESTITUDED_ORBIT_DOWNLOAD_FOLDER = main_config['restituted_orbit_folder']
+    os.makedirs(PRECISE_ORBIT_DOWNLOAD_FOLDER, exist_ok=True)
+    os.makedirs(RESTITUDED_ORBIT_DOWNLOAD_FOLDER, exist_ok=True)
 
-        # download orbits
-        logging.info(f'downloading orbit files for scene')
-        prec_orb_files = download_eofs(sentinel_file=scene_zip, 
-                      save_dir=main_config['precise_orbit_folder'], 
-                      orbit_type='precise',
-                      asf_user=earthdata_uid,
-                      asf_password=earthdata_pswd)
-        if len(prec_orb_files) > 0:
-            ORBIT_PATH = str(prec_orb_files[0])
-            logging.info(f'using precise orbits: {ORBIT_PATH}')
-        else:
-            #download restituted orbits
-            res_orb_files = download_eofs(sentinel_file=scene_zip, 
-                          save_dir=main_config['restituted_orbit_folder'], 
-                          orbit_type='restituted',
-                          asf_user=earthdata_uid,
-                          asf_password=earthdata_pswd,
-                          )  
-            ORBIT_PATH = str(res_orb_files[0])
-            logging.info(f'using restituted orbits: {ORBIT_PATH}')
-        
-        CONFIG_ORBIT_FILE_PATH.append(ORBIT_PATH)
-        
-    # print(f'Downloaded {len(CONFIG_SAFE_FILE_PATH)} of {len(main_config['scenes'])} scenes')
+    # download orbits
+    logging.info(f'downloading orbit files for scene')
+    prec_orb_files = download_eofs(sentinel_file=scene_zip, 
+                    save_dir=main_config['precise_orbit_folder'], 
+                    orbit_type='precise',
+                    asf_user=earthdata_uid,
+                    asf_password=earthdata_pswd)
+    if len(prec_orb_files) > 0:
+        ORBIT_PATH = str(prec_orb_files[0])
+        logging.info(f'using precise orbits: {ORBIT_PATH}')
+    else:
+        #download restituted orbits
+        res_orb_files = download_eofs(sentinel_file=scene_zip, 
+                        save_dir=main_config['restituted_orbit_folder'], 
+                        orbit_type='restituted',
+                        asf_user=earthdata_uid,
+                        asf_password=earthdata_pswd,
+                        )  
+        ORBIT_PATH = str(res_orb_files[0])
+        logging.info(f'using restituted orbits: {ORBIT_PATH}')
+    
+    CONFIG_ORBIT_FILE_PATH.append(ORBIT_PATH)
+    
     t1 = time.time()
     update_timing_file('Download Scene', t1 - t0, TIMING_FILE_PATH)
 
@@ -280,7 +278,7 @@ def run_process(config):
     os.makedirs(COMPASS_CONFIG_FOLDER, exist_ok=True)
 
     # name config after first scene
-    COMPASS_config_name = main_config['scenes'][0] + '.yaml'
+    COMPASS_config_name = main_config['scene'] + '.yaml'
     COMPASS_config_path = os.path.join(COMPASS_CONFIG_FOLDER, COMPASS_config_name)
     with open(COMPASS_config_path, 'w') as f:
         f.write(template_text)

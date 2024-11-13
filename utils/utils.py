@@ -29,7 +29,7 @@ def get_scene_name(config):
     # read in the config for on the fly (otf) processing
     with open(config, 'r', encoding='utf8') as fin:
         main_config = yaml.safe_load(fin.read())
-    return main_config['scenes'][0]
+    return main_config['scene']
 
 def get_unique_log_filename(scene_name):
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
