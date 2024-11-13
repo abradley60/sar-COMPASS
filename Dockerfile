@@ -1,10 +1,11 @@
-from opera/cslc_s1:final_0.5.5
+FROM opera/cslc_s1:final_0.5.5
 
 USER root
 RUN yum install -y time
 
 USER compass_user
 RUN mkdir -p /home/compass_user/scripts/
+COPY sar_2scene_list.txt /home/compass_user/scripts/sar_2scene_list.txt
 COPY main.py /home/compass_user/scripts/main.py
 COPY upload_logs.py /home/compass_user/scripts/upload_logs.py
 COPY config.yaml /home/compass_user/scripts/config.yaml
