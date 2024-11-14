@@ -234,12 +234,6 @@ def run_process(config):
                 ds.update_tags(AREA_OR_POINT='Point')
             del dem_data
             logging.info(f'DEM downloaded : {DEM_PATH}')
-            # save with rasterio
-            logging.info(f'saving dem to {DEM_PATH}')
-            with rasterio.open(DEM_PATH, 'w', **dem_meta) as ds:
-                ds.write(dem_data, 1)
-                ds.update_tags(AREA_OR_POINT='Point')
-            del dem_data
 
     t2 = time.time()
     update_timing_file('Download DEM', t2 - t1, TIMING_FILE_PATH)
