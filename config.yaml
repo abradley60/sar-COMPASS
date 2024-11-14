@@ -1,8 +1,6 @@
 # list of scenes to download and process
-scenes: [
-        # ridgrecrest 
-         'S1A_IW_SLC__1SDV_20190716T135159_20190716T135226_028143_032DC3_512B'
-        ]
+# ridgrecrest
+scene: S1A_IW_SLC__1SDV_20190716T135159_20190716T135226_028143_032DC3_512B
 
 # list of corresponding bursts
 # leave empty to process full scene [t071_151218_iw2]
