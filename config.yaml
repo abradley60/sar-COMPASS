@@ -4,7 +4,7 @@ scene: S1A_IW_SLC__1SDV_20190716T135159_20190716T135226_028143_032DC3_512B
 
 # list of corresponding bursts
 # leave empty to process full scene [t071_151218_iw2]
-burst_ids : [t071_151218_iw2]
+burst_ids :
 
 # the name of the software. This will form part of the path
 # where the products are written
@@ -53,7 +53,7 @@ restituted_orbit_folder: /data/osv/RESORB
 # Absolute file path to a DEM to use (skip download process and use DEM specified)
 # leave empty to ignore
 # /data/dem/glo_30/S1A_IW_SLC__1SDV_20191028T131928_20191028T131947_029659_0360CA_A1A0_dem_3031.tif
-dem_path: /data/dem/glo_30/S1A_IW_SLC__1SDV_20190716T135159_20190716T135226_028143_032DC3_512B_dem.tif
+dem_path: 
 
 # directory downloaded DEM will be saved - a sub folder is made for each DEM type
 dem_folder: /data/dem

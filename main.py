@@ -300,17 +300,17 @@ def run_process(config):
                 # Process any remaining stderr
                 for err in process.stderr.readlines():
                     logging.error(err.strip())
+                logging.info(f"Subprocess completed with return code: {return_code}")
                 break
     else:
         logging.info(f'PROCESS 3: Skipping COMPASS ("skip_COMPASS"==True)')
     
-    # check if the final products exist, indicating success 
     t3 = time.time()
-    update_timing_file('RTC Processing', t3 - t2, TIMING_FILE_PATH)
+    update_timing_file('CSLC Processing', t3 - t2, TIMING_FILE_PATH)
             
     # push to S3
     if main_config['push_to_s3']:
-        logging.info(f'PROCESS 3: Push results to S3 bucket')
+        logging.info(f'PROCESS 4: Push results to S3 bucket')
         # see if any prefix or additional bucket path is needed
         SCENE_PREFIX = '' if main_config["scene_prefix"] == None else main_config["scene_prefix"]
         S3_BUCKET_FOLDER = '' if main_config["s3_bucket_folder"] == None else main_config["s3_bucket_folder"]
@@ -378,8 +378,8 @@ def run_process(config):
                         object_name=bucket_path)
             os.remove(TIMING_FILE_PATH)
         
-    logging.info(f'Run complete, {len(main_config["scenes"])} scenes processed')
-    logging.info(f'Elapsed time:  {((time.time() - t_start)/60)} minutes')
+    logging.info(f"Run complete, scene {main_config['scene']} processed")
+    logging.info(f"Elapsed time:  {((time.time() - t_start)/60)} minutes")
 
 if __name__ == "__main__":
 

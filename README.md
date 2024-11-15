@@ -1,30 +1,25 @@
-### Instructions to run the docker container interactively
+### Instructions to run a multi-container setup
 
 Build the container with a tag.
 
 `docker build -t compass-orc:latest .`
 
-Run the container in interactive mode, mounting your local data folder to the one inside the Docker container.
+Leave existing nodes.
 
-`docker run --volume /home/ubuntu/sar-COMPASS-data:/data -it compass-orc:latest bash`
+`docker swarm leave --force`
 
-Navigate to the scripts folder inside the Docker container.
+Inititate a new swarm.
 
-`cd /home/compass_user/scripts` 
+`docker swarm init`
 
-Run the script in debugging mode.
+Deploy a multi-container setup. Specify the number of wanted containers in the `num_replicas` and `replicas` fields in the `docker-compose.yaml`. This can be less than or equal to the number of scenes in your scene list.
 
-`python3 -m pdb main.py -c config.yaml` 
+`docker stack deploy -c docker-compose.yaml sar_test`
 
-Optionally, run the script with memory profiling.
+View containers.
 
-`/usr/bin/time -v -o /data/logs/output_memory_profiling.txt python3 main.py -c config.yaml`
+`docker ps`
 
-Upload the logs to the S3 bucket.
+Copy the container ID or name (recommended since the container IDs seem to change in docker swarm) from above to view the logs. The --follow or -f parameter is to enable real-time logs.
 
-`python3 upload_logs.py -c config.yaml`
-
-### Extra installation notes
-`conda install -c avalentino -c conda-forge s1etad`
-
-`pip install requirements.txt`
+`docker logs -f container_name`
