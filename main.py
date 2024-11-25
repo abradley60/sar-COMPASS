@@ -33,7 +33,8 @@ def run_process(config):
     """
 
     scene_name = get_scene_name(config)  # Get scene name from config
-    fh = logging.FileHandler(f"/data/logs/{get_unique_log_filename(scene_name)}")
+    log_filepath = f"/data/logs/{get_unique_log_filename(scene_name)}"
+    fh = logging.FileHandler(log_filepath)
     logger = logging.getLogger()
     logger.addHandler(fh)
 
@@ -318,7 +319,6 @@ def run_process(config):
             S3_BUCKET_FOLDER,
             main_config["software"],
             main_config['dem_type'],
-            f'CRS',
             f'{SCENE_PREFIX}{SCENE_NAME}')
         # upload output files
         upload_files_in_folder(
