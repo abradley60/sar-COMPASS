@@ -2,11 +2,12 @@ version: '3.8'
 services:
   sar_scene_processor:
     image: compass-orc:latest
-    command: /bin/sh -c "/home/compass_user/scripts/run.sh sar_scene_list.txt && tail -f /dev/null"
+    command: /bin/sh -c "/home/compass_user/scripts/run.sh sar_scene_list.txt"
     environment:
       task_id: "{{.Task.Slot}}"
       num_replicas: 10
     volumes:
-    - /home/ubuntu/sar/home/ubuntu/sar-COMPASS-data:/data # Mount /home/ubuntu/sar-COMPASS-data on local to /data inside the docker container
+    - /home/ubuntu/sar-COMPASS-data:/data # Mount /home/ubuntu/sar-COMPASS-data on local to /data inside the docker container
     deploy:
       replicas: 10
+    restart: no
