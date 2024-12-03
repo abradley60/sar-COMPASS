@@ -1,25 +1,41 @@
 ### Instructions to run a multi-container setup
 
-Build the container with a tag.
+1. Update `sar_scene_list.txt` with your desired Sentinel-1 scenes.
 
-`docker build -t compass-orc:latest .`
+2. Build the container with a tag.
 
-Leave existing nodes.
+    ```
+    docker build -t compass-orc:latest .
+    ```
 
-`docker swarm leave --force`
+3. Leave existing nodes.
 
-Inititate a new swarm.
+    ```
+    docker swarm leave --force
+    ```
 
-`docker swarm init`
+4. Inititate a new swarm.
 
-Deploy a multi-container setup. Specify the number of wanted containers in the `num_replicas` and `replicas` fields in the `docker-compose.yaml`. This can be less than or equal to the number of scenes in your scene list.
+    ```
+    docker swarm init
+    ```
 
-`docker stack deploy -c docker-compose.yaml sar_test`
+5. Deploy a multi-container setup. Specify the number of wanted containers in the `num_replicas` and `replicas` fields in the `docker-compose.yaml`. This can be less than or equal to the number of scenes in your scene list.
 
-View containers.
+    ```
+    docker stack deploy -c docker-compose.yaml sar_test
+    ```
 
-`docker ps`
+#### Optional
 
-Copy the container ID or name (recommended since the container IDs seem to change in docker swarm) from above to view the logs. The --follow or -f parameter is to enable real-time logs.
+6. View containers.
 
-`docker logs -f container_name`
+    ```
+    docker ps
+    ```
+
+7. Copy the container ID or name (recommended since the container IDs seem to change in docker swarm) from above to view the logs. The --follow or -f parameter is to enable real-time logs.
+
+    ```
+    docker logs -f container_name
+    ```
